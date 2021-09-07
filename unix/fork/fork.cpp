@@ -12,10 +12,12 @@ int main() {
         perror("fork");
         exit(EXIT_FAILURE);
     } else if (c_pid > 0) {
-        cout << "printed from parent process " << getpid() << endl;
+        cout << endl << "c_pid: " << c_pid << endl;
+        cout << "Printed from PARENT process: " << getpid() << endl;
         wait(nullptr);
     } else {
-        cout << "printed from child process " << getpid() << endl;
+        cout << endl << "c_pid: " << c_pid << endl;
+        cout << "Printed from CHILD process: " << getpid() << endl;
         exit(EXIT_SUCCESS);
     }
 
