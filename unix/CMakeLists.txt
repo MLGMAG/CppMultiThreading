@@ -19,10 +19,14 @@ add_library(
         semaphoreLib STATIC
         ${UNIX_SOURCE_PATH}/semaphore/semaphore.h
         ${UNIX_SOURCE_PATH}/semaphore/semaphore.cpp
-        )
+)
 add_executable(semaphore semaphore/semaphoreTest.cpp)
 target_link_libraries(semaphore PRIVATE semaphoreLib pthread)
 
 # Hungry Philosophers. Semaphore
 add_executable(hungryPhilosophersSemaphore hungryPhilosophers/hungryPhilosophersSemaphore.cpp)
 target_link_libraries(hungryPhilosophersSemaphore PRIVATE semaphoreLib pthread)
+
+# Hungry Philosophers. Events
+add_executable(hungryPhilosophersEvents hungryPhilosophers/hungryPhilosophersEvents.cpp)
+target_link_libraries(hungryPhilosophersEvents pthread)
