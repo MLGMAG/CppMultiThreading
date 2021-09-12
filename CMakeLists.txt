@@ -3,6 +3,6 @@ project(cppMultiThreading)
 
 add_definitions("-std=c++17")
 
-set(UNIX_SOURCE_PATH ${PROJECT_SOURCE_DIR}/unix)
+set(SOURCE_PATH ${PROJECT_SOURCE_DIR}/src)
 
-add_subdirectory(unix)
+add_subdirectory(src)

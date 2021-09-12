@@ -14,11 +14,11 @@ add_executable(hungryPhilosophersMtx hungryPhilosophers/hungryPhilosophersMtx.cp
 target_link_libraries(hungryPhilosophersMtx pthread)
 
 # Semaphore
-include_directories(${UNIX_SOURCE_PATH}/semaphore)
+include_directories(${SOURCE_PATH}/semaphore)
 add_library(
         semaphoreLib STATIC
-        ${UNIX_SOURCE_PATH}/semaphore/semaphore.h
-        ${UNIX_SOURCE_PATH}/semaphore/semaphore.cpp
+        ${SOURCE_PATH}/semaphore/semaphore.h
+        ${SOURCE_PATH}/semaphore/semaphore.cpp
 )
 add_executable(semaphore semaphore/semaphoreTest.cpp)
 target_link_libraries(semaphore PRIVATE semaphoreLib pthread)
