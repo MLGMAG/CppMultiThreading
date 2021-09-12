@@ -25,16 +25,19 @@ void eat(const string &threadName, const int &seconds) {
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
 }
 
-bool takeForks(int leftFork, int rightFork) {
-    lock_guard guard(forkMtx);
-
-    if (!forks[leftFork] && !forks[rightFork]) {
-        forks[leftFork] = true;
-        forks[rightFork] = true;
-        return true;
+void takeForks(const string &threadName, const int &leftFork, const int &rightFork) {
+    while (true) {
+        unique_lock ul(forkMtx, defer_lock);
+        if (ul.try_lock()) {
+            if (!forks[leftFork] && !forks[rightFork]) {
+                forks[leftFork] = true;
+                forks[rightFork] = true;
+                break;
+            }
+        } else {
+            think(threadName, 3);
+        }
     }
-
-    return false;
 }
 
 void dropForks(int leftFork, int rightFork) {
@@ -53,15 +56,11 @@ void execute(const string &threadName, const int &philosopherPosition, const int
         rightFork = philosopherPosition + 1;
     }
 
-    int eatCount = 0;
-    while (eatCount < eatCountMax) {
-        bool canEat = takeForks(leftFork, rightFork);
-        if (canEat) {
-            eat(threadName, 5);
-            dropForks(leftFork, rightFork);
-            think(threadName, 2);
-            eatCount++;
-        }
+    for (int i = 0; i < eatCountMax; ++i) {
+        takeForks(threadName, leftFork, rightFork);
+        eat(threadName, 2);
+        dropForks(leftFork, rightFork);
+        think(threadName, 6);
     }
 
     synchronizedPrint("'" + threadName + "' is full!");
