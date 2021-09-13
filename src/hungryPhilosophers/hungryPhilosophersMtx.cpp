@@ -34,6 +34,8 @@ void takeForks(const string &threadName, const int &leftFork, const int &rightFo
                 forks[rightFork] = true;
                 break;
             }
+            ul.unlock();
+            think(threadName, 3);
         } else {
             think(threadName, 3);
         }
