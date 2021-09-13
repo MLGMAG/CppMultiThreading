@@ -18,23 +18,29 @@ void synchronizedPrint(const string &msg) {
 }
 
 void think(const string &threadName, const int &seconds) {
-    synchronizedPrint("'" + threadName + "' go think for " + to_string(seconds) + " seconds");
+    synchronizedPrint("'" + threadName + "' goes think for " + to_string(seconds) + " seconds");
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
 }
 
 void eat(const string &threadName, const int &seconds) {
-    synchronizedPrint("'" + threadName + "' go eat for " + to_string(seconds) + " seconds");
+    synchronizedPrint("'" + threadName + "' goes eat for " + to_string(seconds) + " seconds");
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
 }
 
-bool takeForks(int leftFork, int rightFork) {
+void takeForks(const string &threadName, int leftFork, int rightFork) {
     unique_lock ul(forkMtx);
 
-    cv.wait(ul, [leftFork, rightFork]() { return !forks[leftFork] && !forks[rightFork]; });
+    synchronizedPrint("'" + threadName + "' tries to take fork!");
+    auto isForkAvailable = [leftFork, rightFork]() { return !forks[leftFork] && !forks[rightFork]; };
+    bool canTakeForks = cv.wait_for(ul, chrono::seconds(3), isForkAvailable);
 
-    forks[leftFork] = true;
-    forks[rightFork] = true;
-    return true;
+    if (canTakeForks) {
+        forks[leftFork] = true;
+        forks[rightFork] = true;
+        cv.notify_all();
+    } else {
+        think(threadName, 3);
+    }
 }
 
 void dropForks(int leftFork, int rightFork) {
@@ -55,10 +61,10 @@ void execute(const string &threadName, const int &philosopherPosition, const int
     }
 
     for (int i = 0; i < eatCountMax; ++i) {
-        takeForks(leftFork, rightFork);
-        eat(threadName, 5);
+        takeForks(threadName, leftFork, rightFork);
+        eat(threadName, 2);
         dropForks(leftFork, rightFork);
-        think(threadName, 2);
+        think(threadName, 6);
     }
 
     synchronizedPrint("'" + threadName + "' is full!");
