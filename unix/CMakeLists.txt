@@ -9,3 +9,7 @@ target_link_libraries(multipleThread pthread)
 # Synchronized Print
 add_executable(synchronizedPrint synchronizedPrint/synchronizedPrint.cpp)
 target_link_libraries(synchronizedPrint pthread)
+
+# Hungry Philosophers. Mutex
+add_executable(hungryPhilosophersMutexUnix hungryPhilosophers/hungryPhilosophersMutex.cpp)
+target_link_libraries(hungryPhilosophersMutexUnix pthread)
