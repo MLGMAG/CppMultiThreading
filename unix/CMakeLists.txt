@@ -5,3 +5,7 @@ target_link_libraries(singleThread pthread)
 # Create thread. Multiple threads
 add_executable(multipleThread createThread/multipleThreads.cpp)
 target_link_libraries(multipleThread pthread)
+
+# Synchronized Print
+add_executable(synchronizedPrint synchronizedPrint/synchronizedPrint.cpp)
+target_link_libraries(synchronizedPrint pthread)
