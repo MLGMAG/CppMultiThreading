@@ -13,3 +13,13 @@ target_link_libraries(synchronizedPrint pthread)
 # Hungry Philosophers. Mutex
 add_executable(hungryPhilosophersMutexUnix hungryPhilosophers/hungryPhilosophersMutex.cpp)
 target_link_libraries(hungryPhilosophersMutexUnix pthread)
+
+# Semaphore
+include_directories(${UNIX_SOURCE_PATH}/semaphore)
+add_library(
+        semaphoreUnixLib STATIC
+        ${UNIX_SOURCE_PATH}/semaphore/semaphore.h
+        ${UNIX_SOURCE_PATH}/semaphore/semaphore.cpp
+)
+add_executable(semaphoreUnixTest semaphore/semaphoreTest.cpp)
+target_link_libraries(semaphoreUnixTest PRIVATE semaphoreUnixLib pthread)
