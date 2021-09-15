@@ -23,3 +23,7 @@ add_library(
 )
 add_executable(semaphoreUnixTest semaphore/semaphoreTest.cpp)
 target_link_libraries(semaphoreUnixTest PRIVATE semaphoreUnixLib pthread)
+
+# Hungry Philosophers. Semaphore
+add_executable(hungryPhilosophersSemaphoreUnix hungryPhilosophers/hungryPhilosophersSemaphore.cpp)
+target_link_libraries(hungryPhilosophersSemaphoreUnix PRIVATE semaphoreUnixLib pthread)
