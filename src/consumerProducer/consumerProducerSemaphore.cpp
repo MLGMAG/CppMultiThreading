@@ -24,9 +24,9 @@ void rest(const string &humanName, const int &seconds) {
 }
 
 void insertProductInQueue(const string &producerName, int iteration) {
-    string msg = "'" + producerName + "' has iteration " + to_string(iteration) + " and produces Product-" +
-                 to_string(productsQueue.size()) +
-                 ". Wait 2 seconds!";
+    string msg = "'" + producerName + "' has iteration " + to_string(iteration) + " and produces 'Product-" +
+                 to_string(productCounter) +
+                 "'. Wait 2 seconds!";
     synchronizedPrint(msg);
     this_thread::sleep_for(chrono::seconds(2));
     productsQueue.push("Product-" + to_string(productCounter));
@@ -88,6 +88,12 @@ void consume(const string &customerName, const int &productsCount) {
     synchronizedPrint("'" + customerName + "' is tired!");
 }
 
+void initQueue() {
+    productsQueue.emplace("Old item 1");
+    productsQueue.emplace("Old item 2");
+    productsQueue.emplace("Old item 3");
+}
+
 int main() {
     int productsCount;
     int producersCount;
@@ -102,15 +108,16 @@ int main() {
     cout << "Enter customers count: ";
     cin >> customersCount;
 
+    initQueue();
     vector<thread> people;
     for (int i = 0; i < producersCount; ++i) {
         string producerName = "Producer " + to_string(i);
-        people.emplace_back(produce, producerName, producersCount);
+        people.emplace_back(produce, producerName, productsCount);
     }
 
     for (int i = 0; i < customersCount; ++i) {
         string customerName = "Customer " + to_string(i);
-        people.emplace_back(consume, customerName, producersCount);
+        people.emplace_back(consume, customerName, productsCount);
     }
 
     for (thread &t: people) {
