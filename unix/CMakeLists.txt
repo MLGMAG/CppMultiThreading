@@ -31,3 +31,7 @@ target_link_libraries(hungryPhilosophersSemaphoreUnix PRIVATE semaphoreUnixLib p
 # Hungry Philosophers. Events
 add_executable(hungryPhilosophersEventsUnix hungryPhilosophers/hungryPhilosophersEvents.cpp)
 target_link_libraries(hungryPhilosophersEventsUnix PRIVATE pthread)
+
+# Consumer Producer
+add_executable(consumerProducerSemaphoreUnix consumerProducer/consumerProducerSemaphore.cpp)
+target_link_libraries(consumerProducerSemaphoreUnix PRIVATE semaphoreUnixLib pthread)
