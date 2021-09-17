@@ -9,3 +9,6 @@ add_executable(createMutex mutex/createMutex.cpp)
 
 # Synchronized print
 add_executable(synchronizedPrintWin32Api mutex/synchronizedPrint.cpp)
+
+# Readers & Writers. Critical section
+add_executable(readersWritersCriticalSectionWin32Api readersWriters/readersWritersCriticalSection.cpp)
