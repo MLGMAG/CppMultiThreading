@@ -15,3 +15,6 @@ add_executable(readersWritersCriticalSectionWin32Api readersWriters/readersWrite
 
 #Semaphore
 add_executable(semaphoreWin32Test semaphore/semaphoreTest.cpp)
+
+# Sleeping Barber. Semaphore
+add_executable(sleepingBarberSemaphoreWin32 sleepingBarber/sleepingBarberSemaphore.cpp)
