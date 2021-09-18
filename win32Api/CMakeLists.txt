@@ -12,3 +12,6 @@ add_executable(synchronizedPrintWin32Api mutex/synchronizedPrint.cpp)
 
 # Readers & Writers. Critical section
 add_executable(readersWritersCriticalSectionWin32Api readersWriters/readersWritersCriticalSection.cpp)
+
+#Semaphore
+add_executable(semaphoreWin32Test semaphore/semaphoreTest.cpp)
