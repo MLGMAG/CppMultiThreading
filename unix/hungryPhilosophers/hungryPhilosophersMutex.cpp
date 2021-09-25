@@ -6,15 +6,18 @@
 
 using namespace std;
 
-vector<bool> forks;
+void takeForksOnLeft(const string &threadName, pthread_mutex_t &leftFork, pthread_mutex_t &rightFork);
 
-pthread_mutex_t forkMtx;
+void takeForksOnRight(const string &threadName, pthread_mutex_t &leftFork, pthread_mutex_t &rightFork);
+
+vector<pthread_mutex_t> forks;
+
 pthread_mutex_t printMtx;
 
 struct philosopherData {
     string philosopherName;
-    int position;
-    int eatCount;
+    int position = 0;
+    int eatCount = 0;
 };
 
 void synchronizedPrint(const string &msg) {
@@ -33,32 +36,64 @@ void eat(const string &threadName, const int &seconds) {
     sleep(seconds);
 }
 
-bool isForkAvailable(const int &leftFork, const int &rightFork) {
-    return !forks[leftFork] && !forks[rightFork];
-}
+void takeForksOnRight(const string &threadName, pthread_mutex_t &leftFork, pthread_mutex_t &rightFork) {
+    pthread_mutex_lock(&rightFork);
+    synchronizedPrint("'" + threadName + "' successfully takes RIGHT Fork");
 
-void takeForks(const string &threadName, int leftFork, int rightFork) {
-    while (true) {
-        int rc = pthread_mutex_trylock(&forkMtx);
-
-        if (rc != EBUSY) {
-            if (isForkAvailable(leftFork, rightFork)) {
-                forks[leftFork] = true;
-                forks[rightFork] = true;
-                pthread_mutex_unlock(&forkMtx);
-                break;
-            }
-            pthread_mutex_unlock(&forkMtx);
-            think(threadName, 3);
-        } else {
-            think(threadName, 3);
-        }
+    bool takeLeftFork = pthread_mutex_trylock(&leftFork) == 0;
+    if (takeLeftFork) {
+        synchronizedPrint("'" + threadName + "' successfully takes LEFT Fork");
+        eat(threadName, 10);
+        pthread_mutex_unlock(&leftFork);
+        pthread_mutex_unlock(&rightFork);
+    } else {
+        synchronizedPrint("'" + threadName + "' can NOT takes LEFT Fork and waits for it...");
+        pthread_mutex_unlock(&rightFork);
+        takeForksOnLeft(threadName, leftFork, rightFork);
     }
 }
 
-void dropForks(int leftFork, int rightFork) {
-    forks[leftFork] = false;
-    forks[rightFork] = false;
+void takeForksOnLeft(const string &threadName, pthread_mutex_t &leftFork, pthread_mutex_t &rightFork) {
+    pthread_mutex_lock(&leftFork);
+    synchronizedPrint("'" + threadName + "' successfully takes LEFT Fork");
+
+    bool takeRightFork = pthread_mutex_trylock(&rightFork) == 0;
+    if (takeRightFork) {
+        synchronizedPrint("'" + threadName + "' successfully takes RIGHT Fork");
+        eat(threadName, 10);
+        pthread_mutex_unlock(&rightFork);
+        pthread_mutex_unlock(&leftFork);
+    } else {
+        synchronizedPrint("'" + threadName + "' can NOT takes RIGHT Fork and waits for it...");
+        pthread_mutex_unlock(&leftFork);
+        takeForksOnRight(threadName, leftFork, rightFork);
+    }
+}
+
+void takeForks(const string &threadName, pthread_mutex_t &leftFork, pthread_mutex_t &rightFork) {
+    int takeLeftFork = pthread_mutex_trylock(&leftFork);
+
+    if (takeLeftFork == 0) {
+        synchronizedPrint("'" + threadName + "' successfully takes LEFT Fork");
+
+        int takeRightFork = pthread_mutex_trylock(&rightFork);
+
+        if (takeRightFork == 0) {
+            synchronizedPrint("'" + threadName + "' successfully takes RIGHT Fork");
+            eat(threadName, 10);
+            pthread_mutex_unlock(&rightFork);
+            pthread_mutex_unlock(&leftFork);
+        } else {
+            pthread_mutex_unlock(&leftFork);
+            synchronizedPrint("'" + threadName + "' can NOT takes RIGHT Fork and waits for it...");
+            takeForksOnRight(threadName, leftFork, rightFork);
+        }
+    } else {
+        synchronizedPrint("'" + threadName + "' can NOT takes LEFT Fork and waits for it...");
+        takeForksOnLeft(threadName, leftFork, rightFork);
+    }
+
+    think(threadName, 6);
 }
 
 void execute(const string &threadName, const int &philosopherPosition, const int &eatCountMax) {
@@ -71,11 +106,11 @@ void execute(const string &threadName, const int &philosopherPosition, const int
         rightFork = philosopherPosition + 1;
     }
 
+    pthread_mutex_t &leftForkMutex = forks[leftFork];
+    pthread_mutex_t &rightForkMutex = forks[rightFork];
+
     for (int i = 0; i < eatCountMax; ++i) {
-        takeForks(threadName, leftFork, rightFork);
-        eat(threadName, 2);
-        dropForks(leftFork, rightFork);
-        think(threadName, 6);
+        takeForks(threadName, leftForkMutex, rightForkMutex);
     }
 
     synchronizedPrint("'" + threadName + "' is full!");
@@ -99,11 +134,15 @@ int main() {
     cout << "Enter eat count: ";
     cin >> eatCount;
 
-    forks = vector<bool>(philosophersCount, false);
-    pthread_t philosophers[philosophersCount];
+    for (int i = 0; i < philosophersCount; ++i) {
+        pthread_mutex_t mutex;
+        pthread_mutex_init(&mutex, nullptr);
+        forks.push_back(mutex);
+    }
+
+    vector<pthread_t> philosophers;
     philosopherData pd[philosophersCount];
     pthread_mutex_init(&printMtx, nullptr);
-    pthread_mutex_init(&forkMtx, nullptr);
 
     for (int i = 0; i < philosophersCount; ++i) {
         string philosopherName = "Philosopher " + to_string(i);
@@ -111,17 +150,18 @@ int main() {
         pd[i].position = i;
         pd[i].eatCount = eatCount;
 
-        pthread_attr_t attr;
-        pthread_attr_init(&attr);
-
-        pthread_create(&philosophers[i], &attr, &executeRoutine, &pd[i]);
+        pthread_t philosopher;
+        pthread_create(&philosopher, nullptr, &executeRoutine, &pd[i]);
+        philosophers.push_back(philosopher);
     }
 
     for (pthread_t philosopher: philosophers) {
         pthread_join(philosopher, nullptr);
     }
 
-    pthread_mutex_destroy(&forkMtx);
+    for (pthread_mutex_t mutex: forks) {
+        pthread_mutex_destroy(&mutex);
+    }
     pthread_mutex_destroy(&printMtx);
     pthread_exit(nullptr);
 }
