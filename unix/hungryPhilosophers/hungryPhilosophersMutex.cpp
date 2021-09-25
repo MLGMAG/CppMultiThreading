@@ -3,6 +3,10 @@
 #include <pthread.h>
 #include <mutex>
 #include <unistd.h>
+#include <random>
+
+#define MIN_TIME 1
+#define MAX_TIME 10
 
 using namespace std;
 
@@ -11,8 +15,11 @@ void takeForksOnLeft(const string &threadName, pthread_mutex_t &leftFork, pthrea
 void takeForksOnRight(const string &threadName, pthread_mutex_t &leftFork, pthread_mutex_t &rightFork);
 
 vector<pthread_mutex_t> forks;
-
 pthread_mutex_t printMtx;
+
+std::random_device rd;
+std::mt19937 mt(rd());
+std::uniform_real_distribution<double> dist(MIN_TIME, MAX_TIME);
 
 struct philosopherData {
     string philosopherName;
@@ -26,12 +33,16 @@ void synchronizedPrint(const string &msg) {
     pthread_mutex_unlock(&printMtx);
 }
 
-void think(const string &threadName, const int &seconds) {
+void think(const string &threadName) {
+    double seconds = dist(mt);
+
     synchronizedPrint("'" + threadName + "' goes think for " + to_string(seconds) + " seconds");
     sleep(seconds);
 }
 
-void eat(const string &threadName, const int &seconds) {
+void eat(const string &threadName) {
+    double seconds = dist(mt);
+
     synchronizedPrint("'" + threadName + "' goes eat for " + to_string(seconds) + " seconds");
     sleep(seconds);
 }
@@ -43,7 +54,7 @@ void takeForksOnRight(const string &threadName, pthread_mutex_t &leftFork, pthre
     bool takeLeftFork = pthread_mutex_trylock(&leftFork) == 0;
     if (takeLeftFork) {
         synchronizedPrint("'" + threadName + "' successfully takes LEFT Fork");
-        eat(threadName, 10);
+        eat(threadName);
         pthread_mutex_unlock(&leftFork);
         pthread_mutex_unlock(&rightFork);
     } else {
@@ -60,7 +71,7 @@ void takeForksOnLeft(const string &threadName, pthread_mutex_t &leftFork, pthrea
     bool takeRightFork = pthread_mutex_trylock(&rightFork) == 0;
     if (takeRightFork) {
         synchronizedPrint("'" + threadName + "' successfully takes RIGHT Fork");
-        eat(threadName, 10);
+        eat(threadName);
         pthread_mutex_unlock(&rightFork);
         pthread_mutex_unlock(&leftFork);
     } else {
@@ -80,7 +91,7 @@ void takeForks(const string &threadName, pthread_mutex_t &leftFork, pthread_mute
 
         if (takeRightFork == 0) {
             synchronizedPrint("'" + threadName + "' successfully takes RIGHT Fork");
-            eat(threadName, 10);
+            eat(threadName);
             pthread_mutex_unlock(&rightFork);
             pthread_mutex_unlock(&leftFork);
         } else {
@@ -93,7 +104,7 @@ void takeForks(const string &threadName, pthread_mutex_t &leftFork, pthread_mute
         takeForksOnLeft(threadName, leftFork, rightFork);
     }
 
-    think(threadName, 6);
+    think(threadName);
 }
 
 void execute(const string &threadName, const int &philosopherPosition, const int &eatCountMax) {
