@@ -1,11 +1,19 @@
 #include "semaphore.h"
 
 Semaphore::Semaphore() {
-    pthread_mutex_init(&mutex, nullptr);
-    pthread_cond_init(&condition_, nullptr);
-};
+    init();
+}
 
 Semaphore::Semaphore(unsigned long max_count) : max_count_(max_count) {
+    init();
+}
+
+Semaphore::Semaphore(unsigned long max_count, unsigned long initial_size) :
+        max_count_(max_count), count_(initial_size) {
+    init();
+}
+
+void Semaphore::init() {
     pthread_mutex_init(&mutex, nullptr);
     pthread_cond_init(&condition_, nullptr);
 }
@@ -34,7 +42,7 @@ void Semaphore::acquire() {
     pthread_mutex_lock(&mutex);
 
     while (!count_) {
-        pthread_cond_wait(&condition_,&mutex);
+        pthread_cond_wait(&condition_, &mutex);
     }
 
     --count_;

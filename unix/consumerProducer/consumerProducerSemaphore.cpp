@@ -1,7 +1,12 @@
 #include <iostream>
-#include <queue>
 #include <unistd.h>
+#include <vector>
 #include "semaphore.h"
+#include "linkedQueue.h"
+#include <random>
+
+#define MIN_TIME 1
+#define MAX_TIME 10
 
 using namespace std;
 
@@ -18,47 +23,79 @@ struct consumerRoutineParams {
 Semaphore produceSemaphore;
 Semaphore consumeSemaphore;
 pthread_mutex_t coutMtx;
+pthread_mutex_t consumerMtx;
+pthread_mutex_t producerMtx;
 
 int productCounter = 0;
-queue<string> productsQueue;
+LinkedQueue linkedQueue;
 
-void synchronizedPrint(const string &msg) {
+std::random_device rd;
+std::mt19937 mt(rd());
+std::uniform_real_distribution<double> dist(MIN_TIME, MAX_TIME);
+
+
+template<class T>
+void synchronizedPrint(const T &msg) {
     pthread_mutex_lock(&coutMtx);
     cout << msg << endl;
     pthread_mutex_unlock(&coutMtx);
 }
 
-void rest(const string &humanName, const int &seconds) {
+template<class T>
+void synchronizedPrintMsgAndQueue(const T &msg) {
+    pthread_mutex_lock(&coutMtx);
+    cout << msg << linkedQueue << endl;
+    pthread_mutex_unlock(&coutMtx);
+}
+
+void rest(const string &humanName) {
+    double seconds = dist(mt);
+
     synchronizedPrint("Human '" + humanName + "' go rest for " + to_string(seconds) + " seconds!");
     sleep(seconds);
 }
 
-void insertProductInQueue(const string &producerName, int iteration) {
+void insertProductInQueue(const string &producerName, const int &iteration) {
+    double seconds = dist(mt);
     string msg = "'" + producerName + "' has iteration " + to_string(iteration) + " and produces 'Product-" +
                  to_string(productCounter) +
-                 "'. Wait 2 seconds!";
+                 "'. Wait " + to_string(seconds) + " seconds!";
     synchronizedPrint(msg);
-    sleep(2);
-    productsQueue.push("Product-" + to_string(productCounter));
+    sleep(seconds);
+    linkedQueue.push("Product-" + to_string(productCounter));
     productCounter++;
 }
 
-void produceProduct(const string &producerName, int iteration) {
-    while (true) {
-        if (produceSemaphore.try_acquire()) {
-            insertProductInQueue(producerName, iteration);
-            produceSemaphore.release();
-            rest(producerName, 6);
-            break;
-        } else {
-            rest(producerName, 4);
-        }
+void produceProduct(const string &producerName, const int &iteration) {
+    pthread_mutex_lock(&producerMtx);
+    if (linkedQueue.size() < 2) {
+        pthread_mutex_lock(&consumerMtx);
+
+        produceSemaphore.acquire();
+        synchronizedPrintMsgAndQueue(producerName + ". Start. Queue: ");
+        insertProductInQueue(producerName, 0);
+        consumeSemaphore.release();
+
+        produceSemaphore.acquire();
+        synchronizedPrintMsgAndQueue(producerName + ". Queue: ");
+        insertProductInQueue(producerName, 0);
+        consumeSemaphore.release();
+
+        pthread_mutex_unlock(&consumerMtx);
+    } else {
+        produceSemaphore.acquire();
+        synchronizedPrintMsgAndQueue(producerName + ". Start. Queue: ");
+        insertProductInQueue(producerName, iteration);
+        consumeSemaphore.release();
     }
+    synchronizedPrintMsgAndQueue(producerName + ". End. Queue : ");
+    pthread_mutex_unlock(&producerMtx);
 }
 
 void produce(const string &producerName, const int &productsCount) {
     for (int i = 0; i < productsCount; ++i) {
         produceProduct(producerName, i);
+        rest(producerName);
     }
     synchronizedPrint("'" + producerName + "' is tired!");
 }
@@ -71,37 +108,33 @@ void *produceRoutine(void *params) {
     pthread_exit(nullptr);
 }
 
-void popProductFromQueue(const string &customerName, int iteration) {
-    string consumedProduct = productsQueue.front();
+void popProductFromQueue(const string &customerName, const int &iteration) {
+    string consumedProduct = *linkedQueue.front();
 
     string msg = "'" + customerName + "' has iteration " + to_string(iteration) +
                  " and consume '" + consumedProduct + "'. Wait 2 seconds!";
     synchronizedPrint(msg);
     sleep(2);
-    productsQueue.pop();
+    linkedQueue.pop();
 }
 
-void consumeProduct(const string &customerName, int iteration) {
-    while (true) {
-        if (consumeSemaphore.try_acquire()) {
-            if (productsQueue.empty()) {
-                consumeSemaphore.release();
-                rest(customerName, 4);
-                continue;
-            }
-            popProductFromQueue(customerName, iteration);
-            consumeSemaphore.release();
-            rest(customerName, 6);
-            break;
-        } else {
-            rest(customerName, 4);
-        }
-    }
+void consumeProduct(const string &customerName, const int &iteration) {
+    consumeSemaphore.acquire();
+    pthread_mutex_lock(&consumerMtx);
+    synchronizedPrintMsgAndQueue(customerName + ". Start. Queue: ");
+
+    popProductFromQueue(customerName, iteration);
+    produceSemaphore.release();
+
+    synchronizedPrintMsgAndQueue(customerName + ". End. Queue: ");
+    pthread_mutex_unlock(&consumerMtx);
 }
 
 void consume(const string &customerName, const int &productsCount) {
     for (int i = 0; i < productsCount; ++i) {
         consumeProduct(customerName, i);
+        rest(customerName);
+        rest(customerName);
     }
     synchronizedPrint("'" + customerName + "' is tired!");
 }
@@ -114,16 +147,14 @@ void *consumeRoutine(void *params) {
     pthread_exit(nullptr);
 }
 
-void initQueue() {
-    productsQueue.emplace("Old item 1");
-    productsQueue.emplace("Old item 2");
-    productsQueue.emplace("Old item 3");
-}
-
 int main() {
+    int bufferSize;
     int productsCount;
     int producersCount;
     int customersCount;
+
+    cout << "Enter buffer size: ";
+    cin >> bufferSize;
 
     cout << "Enter products count for each producer/consumer: ";
     cin >> productsCount;
@@ -134,19 +165,24 @@ int main() {
     cout << "Enter customers count: ";
     cin >> customersCount;
 
-    initQueue();
+    consumeSemaphore = Semaphore(bufferSize, 0);
+    produceSemaphore = Semaphore(bufferSize, bufferSize);
     int peopleCount = producersCount + customersCount;
-    pthread_t people[peopleCount];
+    vector<pthread_t> people;
     consumerRoutineParams consumerData[customersCount];
     producerRoutineParams producerData[peopleCount];
     pthread_mutex_init(&coutMtx, nullptr);
+    pthread_mutex_init(&consumerMtx, nullptr);
+    pthread_mutex_init(&producerMtx, nullptr);
 
     for (int i = 0; i < producersCount; ++i) {
         string producerName = "Producer " + to_string(i);
         producerData[i].producerName = producerName;
         producerData[i].productsCount = productsCount;
 
-        pthread_create(&people[i], nullptr, &produceRoutine, &producerData[i]);
+        pthread_t thread;
+        pthread_create(&thread, nullptr, &produceRoutine, &producerData[i]);
+        people.push_back(thread);
     }
 
     for (int i = 0; i < customersCount; ++i) {
@@ -154,13 +190,17 @@ int main() {
         consumerData[i].customerName = customerName;
         consumerData[i].productsCount = productsCount;
 
-        pthread_create(&people[producersCount + i], nullptr, &consumeRoutine, &consumerData[i]);
+        pthread_t thread;
+        pthread_create(&thread, nullptr, &consumeRoutine, &consumerData[i]);
+        people.push_back(thread);
     }
 
     for (pthread_t t: people) {
         pthread_join(t, nullptr);
     }
 
+    pthread_mutex_destroy(&producerMtx);
+    pthread_mutex_destroy(&consumerMtx);
     pthread_mutex_destroy(&coutMtx);
     pthread_exit(nullptr);
 }

@@ -44,4 +44,4 @@ target_link_libraries(linkedQueueUnixTest PRIVATE linkedQueueUnixLib)
 
 # Consumer Producer
 add_executable(consumerProducerSemaphoreUnix consumerProducer/consumerProducerSemaphore.cpp)
-target_link_libraries(consumerProducerSemaphoreUnix PRIVATE semaphoreUnixLib pthread)
+target_link_libraries(consumerProducerSemaphoreUnix PRIVATE semaphoreUnixLib linkedQueueUnixLib pthread)

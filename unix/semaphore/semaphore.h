@@ -14,6 +14,8 @@ public:
 
     explicit Semaphore(unsigned long max_count);
 
+    explicit Semaphore(unsigned long max_count, unsigned long initial_size);
+
     ~Semaphore();
 
     unsigned long max();
@@ -25,4 +27,7 @@ public:
     void acquire();
 
     bool try_acquire();
+
+private:
+    void init();
 };
