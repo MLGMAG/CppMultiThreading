@@ -32,6 +32,16 @@ target_link_libraries(hungryPhilosophersSemaphoreUnix PRIVATE semaphoreUnixLib p
 add_executable(hungryPhilosophersEventsUnix hungryPhilosophers/hungryPhilosophersEvents.cpp)
 target_link_libraries(hungryPhilosophersEventsUnix PRIVATE pthread)
 
+# Linked Queue
+include_directories(${UNIX_SOURCE_PATH}/linkedQueue)
+add_library(
+        linkedQueueUnixLib STATIC
+        ${UNIX_SOURCE_PATH}/linkedQueue/linkedQueue.h
+        ${UNIX_SOURCE_PATH}/linkedQueue/linkedQueue.cpp
+)
+add_executable(linkedQueueUnixTest linkedQueue/linkedQueueTest.cpp)
+target_link_libraries(linkedQueueUnixTest PRIVATE linkedQueueUnixLib)
+
 # Consumer Producer
 add_executable(consumerProducerSemaphoreUnix consumerProducer/consumerProducerSemaphore.cpp)
 target_link_libraries(consumerProducerSemaphoreUnix PRIVATE semaphoreUnixLib pthread)
