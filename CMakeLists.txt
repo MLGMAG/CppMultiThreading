@@ -7,7 +7,7 @@ set(SOURCE_PATH ${PROJECT_SOURCE_DIR}/src)
 add_subdirectory(src)
 
 set(WIN32_SOURCE_PATH ${PROJECT_SOURCE_DIR}/win32Api)
-add_subdirectory(win32Api)
-
 set(UNIX_SOURCE_PATH ${PROJECT_SOURCE_DIR}/unix)
+
+add_subdirectory(win32Api)
 add_subdirectory(unix)

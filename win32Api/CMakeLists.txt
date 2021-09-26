@@ -17,4 +17,6 @@ add_executable(readersWritersCriticalSectionWin32Api readersWriters/readersWrite
 add_executable(semaphoreWin32Test semaphore/semaphoreTest.cpp)
 
 # Sleeping Barber. Semaphore
+include_directories(${UNIX_SOURCE_PATH}/linkedQueue)
 add_executable(sleepingBarberSemaphoreWin32 sleepingBarber/sleepingBarberSemaphore.cpp)
+target_link_libraries(sleepingBarberSemaphoreWin32 PRIVATE linkedQueueUnixLib)
