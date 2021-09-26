@@ -1,20 +1,33 @@
 #include <windows.h>
 #include <iostream>
+#include <unistd.h>
+#include <random>
+#include <vector>
+
+#define MIN_TIME 1
+#define MAX_TIME 10
 
 using namespace std;
 
+std::random_device rd;
+std::mt19937 mt(rd());
+std::uniform_real_distribution<double> dist(MIN_TIME, MAX_TIME);
+
 struct humanData {
     string name;
+    int id;
     int iterations;
 };
 
-bool isDoorOpen = true;
+bool isWriterInLib = false;
 int readersInLibrary = 0;
 
 CRITICAL_SECTION printCriticalSection;
-CRITICAL_SECTION writeCriticalSection;
-CRITICAL_SECTION enterLibCriticalSection;
 CRITICAL_SECTION libDoorCriticalSection;
+CRITICAL_SECTION libraryCriticalSection;
+CRITICAL_SECTION writersInLibCriticalSection;
+CONDITION_VARIABLE writerWaitConditionalVariable;
+vector<CRITICAL_SECTION> readersCriticalSections;
 
 void synchronizedPrint(const string &msg) {
     EnterCriticalSection(&printCriticalSection);
@@ -22,57 +35,45 @@ void synchronizedPrint(const string &msg) {
     LeaveCriticalSection(&printCriticalSection);
 }
 
-void wait(const string &threadName, const int &seconds) {
+void wait(const string &threadName) {
+    double seconds = dist(mt);
     synchronizedPrint("'" + threadName + "' going to wait for " + to_string(seconds) + " seconds!");
-    HANDLE currentThread = GetCurrentThread();
-    WaitForSingleObject(currentThread, seconds * 1000);
+    sleep(seconds);
 }
 
-void readBook(const string &threadName, const int &seconds) {
-    synchronizedPrint("'" + threadName + "' going to read book for " + to_string(seconds) + " seconds!");
-    HANDLE currentThread = GetCurrentThread();
-    WaitForSingleObject(currentThread, seconds * 1000);
+void readBook(const string &threadName) {
+    double seconds = dist(mt);
+    synchronizedPrint("'" + threadName + "' going to read book for " + to_string(seconds) + " seconds! " +
+                      " Reader in library: " + to_string(readersInLibrary));
+    sleep(seconds);
 }
 
-void incrementVisitors() {
-    EnterCriticalSection(&enterLibCriticalSection);
-    readersInLibrary++;
-    LeaveCriticalSection(&enterLibCriticalSection);
-}
-
-void decrementVisitors() {
-    EnterCriticalSection(&enterLibCriticalSection);
-    readersInLibrary--;
-    LeaveCriticalSection(&enterLibCriticalSection);
-}
-
-int getVisitors() {
-    EnterCriticalSection(&enterLibCriticalSection);
-    int visitors = readersInLibrary;
-    LeaveCriticalSection(&enterLibCriticalSection);
-    return visitors;
-}
-
-void toggleLibDoor() {
-    EnterCriticalSection(&libDoorCriticalSection);
-    isDoorOpen = !isDoorOpen;
-    LeaveCriticalSection(&libDoorCriticalSection);
-}
-
-void read(const string &threadName, const int &iterations) {
+void read(const string &threadName, const int &iterations, const int &id) {
     for (int i = 0; i < iterations; ++i) {
-        while (true) {
-            if (isDoorOpen) {
-                synchronizedPrint("'" + threadName + "' enters the library!");
-                incrementVisitors();
-                readBook(threadName, 3);
-                decrementVisitors();
-                break;
-            } else {
-                synchronizedPrint("Door is closed for '" + threadName + "'!");
-                wait(threadName, 6);
-            }
+
+        while (isWriterInLib) {
+            synchronizedPrint("'" + threadName + "' can not access library, cause writer in lib!");
+            SleepConditionVariableCS(&writerWaitConditionalVariable, &readersCriticalSections[i], INFINITE);
         }
+        LeaveCriticalSection(&readersCriticalSections[i]);
+
+        EnterCriticalSection(&libDoorCriticalSection);
+        if (readersInLibrary == 0) {
+            EnterCriticalSection(&libraryCriticalSection);
+        }
+        readersInLibrary++;
+        LeaveCriticalSection(&libDoorCriticalSection);
+
+        readBook(threadName);
+
+        EnterCriticalSection(&libDoorCriticalSection);
+        synchronizedPrint(
+                "'" + threadName + "' is leaving library, readers in library: " + to_string(readersInLibrary));
+        if (readersInLibrary == 1) {
+            LeaveCriticalSection(&libraryCriticalSection);
+        }
+        readersInLibrary--;
+        LeaveCriticalSection(&libDoorCriticalSection);
     }
 
     synchronizedPrint("'" + threadName + "' go home!");
@@ -80,44 +81,35 @@ void read(const string &threadName, const int &iterations) {
 
 DWORD WINAPI readRoutine(LPVOID lpParams) {
     humanData hm = *(humanData *) lpParams;
-    read(hm.name, hm.iterations);
+    read(hm.name, hm.iterations, hm.id);
     return 0;
 }
 
 void writeBook(const string &threadName) {
+    double seconds = dist(mt);
+    synchronizedPrint("'" + threadName + "' going to write book for " + to_string(seconds) + " seconds!");
+    sleep(seconds);
+}
 
-    WINBOOL result = 1;
-    do {
-        if (result == 0) {
-            synchronizedPrint("'" + threadName + "' cannot write book. Someone already is writing one...");
-            wait(threadName, 24);
-        }
-        result = TryEnterCriticalSection(&writeCriticalSection);
-    } while (result == 0);
+void write(const string &threadName) {
+    EnterCriticalSection(&writersInLibCriticalSection);
+    synchronizedPrint("'" + threadName + "' writer enters lib!");
+    isWriterInLib = true;
 
-    toggleLibDoor();
+    EnterCriticalSection(&libraryCriticalSection);
+    writeBook(threadName);
+    LeaveCriticalSection(&libraryCriticalSection);
 
-    while (getVisitors() != 0) {
-        synchronizedPrint("'" + threadName + "' wait 3 seconds for all readers to leave library...");
-        HANDLE currentThread = GetCurrentThread();
-        WaitForSingleObject(currentThread, 3000);
-    }
-
-    synchronizedPrint("'" + threadName + "' going to write book for 8 seconds!");
-    HANDLE currentThread = GetCurrentThread();
-    WaitForSingleObject(currentThread, 8000);
-
-    synchronizedPrint("'" + threadName + "' has finished writing the book!");
-
-    toggleLibDoor();
-
-    LeaveCriticalSection(&writeCriticalSection);
+    isWriterInLib = false;
+    WakeAllConditionVariable(&writerWaitConditionalVariable);
+    wait(threadName);
+    LeaveCriticalSection(&writersInLibCriticalSection);
 }
 
 void write(const string &threadName, const int &iterations) {
     for (int i = 0; i < iterations; ++i) {
-        writeBook(threadName);
-        wait(threadName, 24);
+        write(threadName);
+        wait(threadName);
     }
     synchronizedPrint("'" + threadName + "' is tired and go home!");
 }
@@ -150,14 +142,22 @@ int main() {
     HANDLE hPeople[peopleCount];
     humanData hd[peopleCount];
 
+    for (int i = 0; i < readersCount; ++i) {
+        CRITICAL_SECTION cs;
+        InitializeCriticalSection(&cs);
+        readersCriticalSections.push_back(cs);
+    }
+
     InitializeCriticalSection(&printCriticalSection);
-    InitializeCriticalSection(&writeCriticalSection);
-    InitializeCriticalSection(&enterLibCriticalSection);
     InitializeCriticalSection(&libDoorCriticalSection);
+    InitializeCriticalSection(&libraryCriticalSection);
+    InitializeCriticalSection(&writersInLibCriticalSection);
+    InitializeConditionVariable(&writerWaitConditionalVariable);
 
     for (int i = 0; i < readersCount; ++i) {
         string readerName = "Reader " + to_string(i);
         hd[i].name = readerName;
+        hd[i].id = i;
         hd[i].iterations = readersIterationCount;
 
         hPeople[i] = CreateThread(nullptr, 0, readRoutine, &hd[i], 0, nullptr);
@@ -177,9 +177,14 @@ int main() {
         CloseHandle(human);
     }
 
+    for (CRITICAL_SECTION cs: readersCriticalSections) {
+        DeleteCriticalSection(&cs);
+    }
+
+    WakeAllConditionVariable(&writerWaitConditionalVariable);
+    DeleteCriticalSection(&writersInLibCriticalSection);
+    DeleteCriticalSection(&libraryCriticalSection);
     DeleteCriticalSection(&libDoorCriticalSection);
-    DeleteCriticalSection(&enterLibCriticalSection);
-    DeleteCriticalSection(&writeCriticalSection);
     DeleteCriticalSection(&printCriticalSection);
     return 0;
 }
