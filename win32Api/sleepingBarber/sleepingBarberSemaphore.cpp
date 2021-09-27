@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 #define MIN_TIME 1
-#define MAX_TIME 10
+#define MAX_TIME 5
 
 using namespace std;
 
@@ -47,11 +47,11 @@ void barbering(const string &barberName, const int &barberStamina) {
         if (linkedQueue.size() == 0) {
             synchronizedPrint("'" + barberName + "': There are no clients. I go sleep...");
             WaitForSingleObject(barberSemaphore, INFINITE);
+            synchronizedPrint("'" + barberName + "': waked up...");
         }
 
         WaitForSingleObject(queueSemaphore, INFINITE);
         int customerId = stoi(*linkedQueue.front());
-        linkedQueue.pop();
         ReleaseSemaphore(queueSemaphore, 1, nullptr);
 
         string customerName = "Client " + to_string(customerId);
@@ -69,6 +69,9 @@ void barbering(const string &barberName, const int &barberStamina) {
 
         ReleaseSemaphore(chairSemaphore, 1, nullptr);
 
+        WaitForSingleObject(queueSemaphore, INFINITE);
+        linkedQueue.pop();
+        ReleaseSemaphore(queueSemaphore, 1, nullptr);
     }
     synchronizedPrint("'" + barberName + "': I am tired, I go home!");
 }
@@ -87,6 +90,7 @@ void hairCut(const string &clientName, const int &clientId) {
         linkedQueue.push(to_string(clientId));
         ReleaseSemaphore(barberSemaphore, 1, nullptr);
     } else if (linkedQueue.size() == queue_max) {
+        ReleaseSemaphore(queueSemaphore, 1, nullptr);
         return;
     } else {
         linkedQueue.push(to_string(clientId));
@@ -103,7 +107,6 @@ void hairCut(const string &clientName, const int &clientId) {
 
     WaitForSingleObject(chairSemaphore, INFINITE);
 
-    WaitForSingleObject(barberSemaphore, INFINITE);
     synchronizedPrint("'" + clientName + "' lefts barbary");
 }
 
@@ -112,7 +115,7 @@ DWORD WINAPI hairCutRoutine(LPVOID lpParams) {
     for (int i = 0; i < 2; ++i) {
         hairCut(clientParams.clientName, clientParams.id);
         double seconds = dist(mt);
-        sleep(10 * seconds);
+        sleep(20);
     }
     return 0;
 }
@@ -133,15 +136,15 @@ int main() {
 
     HANDLE threads[clientCount + 1];
     ClientParams cp[clientCount];
-    queueSemaphore = CreateSemaphoreA(nullptr, 1, 1, nullptr);
-    printingSemaphore = CreateSemaphoreA(nullptr, 1, 1, nullptr);
-    barberSemaphore = CreateSemaphoreA(nullptr, 0, 1, nullptr);
-    chairSemaphore = CreateSemaphoreA(nullptr, 0, 1, nullptr);
-    barberStarterSemaphore = CreateSemaphoreA(nullptr, 0, 1, nullptr);
+    queueSemaphore = CreateSemaphore(nullptr, 1, 1, nullptr);
+    printingSemaphore = CreateSemaphore(nullptr, 1, 1, nullptr);
+    barberSemaphore = CreateSemaphore(nullptr, 0, 1, nullptr);
+    chairSemaphore = CreateSemaphore(nullptr, 0, 1, nullptr);
+    barberStarterSemaphore = CreateSemaphore(nullptr, 0, 1, nullptr);
     queue_max = clientChairsCount;
 
     for (int i = 0; i < clientCount; ++i) {
-        HANDLE semaphore = CreateSemaphoreA(nullptr, 0, 1, nullptr);
+        HANDLE semaphore = CreateSemaphore(nullptr, 0, 1, nullptr);
         customersSemaphores.push_back(semaphore);
     }
 
