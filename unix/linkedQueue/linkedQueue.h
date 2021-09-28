@@ -3,6 +3,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <pthread.h>
 
 class Node {
 public:
@@ -34,12 +35,13 @@ public:
 
     std::string *back() const;
 
-//    void print() const;
-
 private:
     int length = 0;
     Node *head = nullptr;
     Node *tail = nullptr;
+    pthread_mutex_t mutex;
+
+    void init();
 };
 
 std::ostream &operator<<(std::ostream &os, const LinkedQueue &queue);

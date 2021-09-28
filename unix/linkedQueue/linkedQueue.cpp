@@ -2,10 +2,17 @@
 
 using namespace std;
 
-LinkedQueue::LinkedQueue() = default;
+LinkedQueue::LinkedQueue() {
+    init();
+}
 
 LinkedQueue::~LinkedQueue() {
     clear();
+    pthread_mutex_destroy(&mutex);
+}
+
+void LinkedQueue::init() {
+    pthread_mutex_init(&mutex, nullptr);
 }
 
 int LinkedQueue::size() const {
@@ -24,7 +31,6 @@ void LinkedQueue::push(const string_view &data) {
         node->prev = nullptr;
         this->head = node;
         this->tail = node;
-        length++;
     } else {
         Node *oldTail = this->tail;
 
@@ -36,8 +42,10 @@ void LinkedQueue::push(const string_view &data) {
         oldTail->prev = newTail;
 
         this->tail = newTail;
-        length++;
     }
+    pthread_mutex_lock(&mutex);
+    length++;
+    pthread_mutex_unlock(&mutex);
 }
 
 void LinkedQueue::pop() {
@@ -51,7 +59,9 @@ void LinkedQueue::pop() {
         tail = nullptr;
         delete oldHead;
 
+        pthread_mutex_lock(&mutex);
         length--;
+        pthread_mutex_unlock(&mutex);
         return;
     }
 
@@ -62,7 +72,9 @@ void LinkedQueue::pop() {
         head = tail;
         delete oldHead;
 
+        pthread_mutex_lock(&mutex);
         length--;
+        pthread_mutex_unlock(&mutex);
         return;
     }
 
@@ -71,7 +83,9 @@ void LinkedQueue::pop() {
     newHead->next = nullptr;
     head = newHead;
     delete oldHead;
+    pthread_mutex_lock(&mutex);
     length--;
+    pthread_mutex_unlock(&mutex);
 }
 
 void LinkedQueue::clear() {
